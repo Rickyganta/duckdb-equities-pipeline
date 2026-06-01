@@ -1,53 +1,72 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['symbol', 'date']
+) }}
+
 with staged as (
     select * from {{ ref('stg_stock_data') }}
 ),
 
 dim as (
-    select ticker_sk, ticker from {{ ref('dim_tickers') }}
+    select symbol_id, symbol from {{ ref('dim_tickers') }}
 ),
 
 joined as (
     select
-        d.ticker_sk,
-        s.ticker,
-        s.trade_date,
-        s.open_price,
-        s.high_price,
-        s.low_price,
-        s.close_price,
+        d.symbol_id,
+        s.symbol,
+        s.date,
+        s.open,
+        s.high,
+        s.low,
+        s.close,
         s.volume,
-        s.dividends,
-        s.stock_splits,
-        s.close_price - lag(s.close_price) over (
-            partition by s.ticker
-            order by s.trade_date
-        ) as daily_price_change,
-        case
-            when lag(s.close_price) over (
-                partition by s.ticker
-                order by s.trade_date
-            ) is null
-            or lag(s.close_price) over (
-                partition by s.ticker
-                order by s.trade_date
-            ) = 0
-            then null
-            else round(
-                100.0 * (
-                    s.close_price - lag(s.close_price) over (
-                        partition by s.ticker
-                        order by s.trade_date
-                    )
-                ) / lag(s.close_price) over (
-                    partition by s.ticker
-                    order by s.trade_date
-                ),
-                4
-            )
-        end as daily_return_pct,
+        round(((s.close - s.open) / s.open) * 100.0, 4) as daily_return_percentage,
         s.extracted_at
     from staged s
-    inner join dim d on s.ticker = d.ticker
+    inner join dim d on s.symbol = d.symbol
+),
+
+enriched as (
+    select
+        *,
+        round(
+            avg(close) over (
+                partition by symbol
+                order by date
+                rows between 6 preceding and current row
+            ),
+            4
+        ) as sma_7,
+        round(
+            avg(close) over (
+                partition by symbol
+                order by date
+                rows between 20 preceding and current row
+            ),
+            4
+        ) as sma_21,
+        round(
+            stddev(daily_return_percentage) over (
+                partition by symbol
+                order by date
+                rows between 29 preceding and current row
+            ),
+            4
+        ) as rolling_volatility_30,
+        case
+            when volume > 2.0 * avg(volume) over (
+                partition by symbol
+                order by date
+                rows between 29 preceding and current row
+            )
+            then 1
+            else 0
+        end as volume_anomaly_flag
+    from joined
 )
 
-select * from joined
+select * from enriched
+{% if is_incremental() %}
+where date > (select max(date) from {{ this }})
+{% endif %}

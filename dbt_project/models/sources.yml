@@ -2,7 +2,19 @@ version: 2
 
 sources:
   - name: raw
-    description: Raw stock prices loaded by src/extract.py
+    schema: main
     tables:
       - name: raw_stock_data
-        description: Daily OHLCV from yfinance
+        columns:
+          - name: symbol
+            tests: [not_null]
+          - name: date
+            tests: [not_null]
+          - name: open
+            tests: [not_null]
+          - name: close
+            tests: [not_null]
+          - name: volume
+            tests: [not_null]
+          - name: extracted_at
+            tests: [not_null]

@@ -2,21 +2,28 @@ version: 2
 
 models:
   - name: dim_tickers
-    description: Ticker dimension for the equities star schema
     columns:
-      - name: ticker_sk
+      - name: symbol_id
         tests: [unique, not_null]
-      - name: ticker
+      - name: symbol
         tests: [unique, not_null]
 
   - name: fct_daily_prices
-    description: Daily price fact table joined to dim_tickers
     columns:
-      - name: ticker_sk
+      - name: symbol_id
         tests:
           - not_null
           - relationships:
               to: ref('dim_tickers')
-              field: ticker_sk
-      - name: trade_date
+              field: symbol_id
+      - name: symbol
+        tests: [not_null]
+      - name: date
+        tests: [not_null]
+      - name: daily_return_percentage
+        tests: [not_null]
+      - name: sma_7
+      - name: sma_21
+      - name: rolling_volatility_30
+      - name: volume_anomaly_flag
         tests: [not_null]

@@ -1,46 +1,51 @@
-# Equities Analytics Lakehouse
+# equities-analytics-lakehouse
 
-Portfolio Modern Data Stack: **yfinance** ingestion → **DuckDB** warehouse → **dbt** modeling → **Streamlit** dashboard, orchestrated by **GitHub Actions**.
+Small portfolio project I put together to show I can wire up a modern data stack without reaching for Snowflake or a massive cloud bill.
 
-## Architecture
+Pulls ~30 days of prices for **AAPL**, **MSFT**, and **SPY** with yfinance, lands them in a local **DuckDB** file, models them in **dbt**, and there's a **Streamlit** front end with a Plotly chart. GitHub Actions runs the extract + dbt job once a day and commits the updated `warehouse.duckdb` if anything changed.
 
-```
-yfinance (extract) → DuckDB (raw_stock_data)
-                         ↓
-                    dbt (staging + star schema marts)
-                         ↓
-                 Streamlit (KPIs + charts)
-```
+## stack
 
-## Quick start
+- Python 3.11 (dbt doesn't play nice with 3.14 yet)
+- yfinance → DuckDB (`raw_stock_data`)
+- dbt staging + two mart tables (`dim_tickers`, `fct_daily_prices`)
+- Streamlit + plotly for the dashboard
 
-Use **Python 3.11 or 3.12** (dbt does not yet support 3.14).
+## run it locally
 
 ```bash
-cd Equities_Analytics_Lakehouse
-python3.11 -m venv .venv && source .venv/bin/activate
+git clone git@github.com:Rickyganta/equities-analytics-lakehouse.git
+cd equities-analytics-lakehouse
+
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
-python src/extract.py
+python -m src.extract
 dbt build --project-dir dbt_project --profiles-dir dbt_project
-
 streamlit run src/app.py
 ```
 
-## Project layout
+If the app complains about missing tables, you skipped the dbt step. If extract fails, yfinance is probably rate-limiting you — wait a minute and try again.
 
-| Path | Purpose |
-|------|---------|
-| `src/extract.py` | Download 30d OHLCV for AAPL, MSFT, SPY into `data/warehouse.duckdb` |
-| `dbt_project/` | Staging cleanup + `dim_tickers` / `fct_daily_prices` marts |
-| `src/app.py` | Read-only Streamlit dashboard over mart tables |
-| `.github/workflows/daily_run.yml` | Daily extract → dbt → commit warehouse |
+## what's in the repo
 
-## Mart schema
+- `src/extract.py` — download + load raw table
+- `src/app.py` — dashboard
+- `dbt_project/` — models live here
+- `data/warehouse.duckdb` — the actual database (checked in on purpose so the demo works out of the box)
+- `.github/workflows/daily_run.yml` — cron @ 12:00 UTC
 
-- **`marts.dim_tickers`** — Ticker dimension (surrogate key, company label, date range)
-- **`marts.fct_daily_prices`** — Daily prices, volume, daily change and return %
+## github actions note
 
-## CI note
+Repo needs **Settings → Actions → General → Workflow permissions → Read and write** or the bot can't push the duckdb file back.
 
-The daily workflow needs permission to push commits. Ensure the default `GITHUB_TOKEN` can write to the branch (repo **Settings → Actions → General → Workflow permissions → Read and write**).
+## columns
+
+Raw table uses lowercase snake_case: `symbol`, `date`, `open`, `high`, `low`, `close`, `volume`, `extracted_at`. dbt marts keep the same naming so nothing breaks between layers.
+
+## fact table math
+
+`daily_return_percentage` = `(close - open) / open * 100`. Intraday only, not vs prior close.
+
+— Ricky

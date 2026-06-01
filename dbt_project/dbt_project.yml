@@ -1,8 +1,8 @@
-name: equities_analytics
-version: "1.0.0"
+name: 'equities_analytics_lakehouse'
+version: '1.0.0'
 config-version: 2
 
-profile: equities_lakehouse
+profile: 'equities_analytics_lakehouse'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -12,14 +12,17 @@ macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
 clean-targets:
-  - target
-  - dbt_packages
+  - "target"
+  - "dbt_packages"
 
 models:
-  equities_analytics:
+  equities_analytics_lakehouse:
     staging:
-      +schema: staging
       +materialized: view
+      +schema: staging
     marts:
       +schema: marts
-      +materialized: table
+      dim_tickers:
+        +materialized: table
+      fct_daily_prices:
+        +materialized: incremental
