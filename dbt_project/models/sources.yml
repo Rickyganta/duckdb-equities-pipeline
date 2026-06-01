@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw stock prices loaded by src/extract.py
+    tables:
+      - name: raw_stock_data
+        description: Daily OHLCV from yfinance

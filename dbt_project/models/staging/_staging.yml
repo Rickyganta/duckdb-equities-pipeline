@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_stock_data
+    description: Cleaned and typed daily stock prices
+    columns:
+      - name: ticker
+        tests: [not_null]
+      - name: trade_date
+        tests: [not_null]
+      - name: close_price
+        tests: [not_null]
