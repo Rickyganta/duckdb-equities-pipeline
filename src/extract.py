@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.config import DB_PATH, TICKERS
+from src.config import DB_PATH, PERIOD, TICKERS
 from src.ingestion import market_data, warehouse
 
 logging.basicConfig(
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 def extract_market_data() -> bool:
-    log.info("starting extract for %s", list(TICKERS))
+    log.info("starting extract for %s (period=%s)", list(TICKERS), PERIOD)
 
     df = market_data.fetch_all()
     if df is None:

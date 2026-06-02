@@ -13,6 +13,23 @@ log = logging.getLogger(__name__)
 RETRIES = 3
 COLUMNS = ("symbol", "date", "open", "high", "low", "close", "volume", "extracted_at")
 
+
+def _period_days(period: str = PERIOD) -> int:
+    if period.endswith("d"):
+        return int(period[:-1])
+    return 60
+
+
+def _chart_range_for_period(period: str = PERIOD) -> str:
+    days = _period_days(period)
+    if days <= 5:
+        return "5d"
+    if days <= 30:
+        return "1mo"
+    if days <= 90:
+        return "3mo"
+    return "6mo"
+
 # yfinance breaks a lot lately; this endpoint still works with a browser UA
 CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
@@ -42,7 +59,7 @@ def _finalize(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     for col in ("open", "high", "low", "close", "volume"):
         out[col] = pd.to_numeric(out[col], errors="coerce")
 
-    cutoff = datetime.utcnow() - timedelta(days=30)
+    cutoff = datetime.utcnow() - timedelta(days=_period_days())
     out = out[out["date"] >= pd.Timestamp(cutoff)]
     out = out.dropna(subset=["date", "open", "high", "low", "close", "volume"])
     out["volume"] = out["volume"].astype("int64")
@@ -58,14 +75,16 @@ def _clean_yfinance_frame(history: pd.DataFrame, symbol: str) -> pd.DataFrame:
     return _finalize(df, symbol)
 
 
-def fetch_ticker_chart_api(symbol: str, session: requests.Session) -> pd.DataFrame | None:
+def fetch_ticker_chart_api(
+    symbol: str, session: requests.Session, period: str = PERIOD
+) -> pd.DataFrame | None:
     url = CHART_URL.format(symbol=symbol)
 
     for attempt in range(1, RETRIES + 1):
         try:
             resp = session.get(
                 url,
-                params={"range": "1mo", "interval": "1d"},
+                params={"range": _chart_range_for_period(period), "interval": "1d"},
                 timeout=30,
             )
             resp.raise_for_status()
@@ -128,7 +147,7 @@ def fetch_ticker_yfinance(
 
 
 def fetch_ticker(symbol: str, session: requests.Session, period: str = PERIOD) -> pd.DataFrame | None:
-    log.info("fetching 30-day history for %s", symbol)
+    log.info("fetching %s history for %s", period, symbol)
 
     # try yfinance first, fall back to chart api (more reliable lately)
     frame = fetch_ticker_yfinance(symbol, session, period)
@@ -136,7 +155,7 @@ def fetch_ticker(symbol: str, session: requests.Session, period: str = PERIOD) -
         return frame
 
     log.info("yfinance empty for %s — trying yahoo chart api", symbol)
-    return fetch_ticker_chart_api(symbol, session)
+    return fetch_ticker_chart_api(symbol, session, period)
 
 
 def fetch_all(tickers: tuple[str, ...] = TICKERS) -> pd.DataFrame | None:
