@@ -15,11 +15,18 @@ echo "=== Equities pipeline deployment check ==="
 echo "Repo: $REPO_ROOT"
 echo
 
-echo "1) Python 3.11"
-if command -v python3.11 >/dev/null; then
-  ok "python3.11 $(python3.11 --version)"
+echo "1) Python 3.11+"
+PYTHON=""
+for cmd in python3.11 python3.12 python3; do
+  if command -v "$cmd" >/dev/null; then
+    PYTHON="$cmd"
+    break
+  fi
+done
+if [[ -n "$PYTHON" ]] && "$PYTHON" -c 'import sys; exit(0 if sys.version_info >= (3, 11) else 1)'; then
+  ok "$PYTHON $($PYTHON --version)"
 else
-  bad "python3.11 not found (sudo apt install python3.11 python3.11-venv)"
+  bad "Python 3.11+ not found (sudo apt install -y python3 python3-venv)"
 fi
 
 echo "2) Virtual environment"
