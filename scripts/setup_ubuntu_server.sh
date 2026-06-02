@@ -49,6 +49,14 @@ fi
 
 cd "$INSTALL_DIR"
 
+if ! git config user.email >/dev/null; then
+  git config user.email "${GIT_USER_EMAIL:-epson7821@gmail.com}"
+fi
+if ! git config user.name >/dev/null; then
+  git config user.name "${GIT_USER_NAME:-ricky}"
+fi
+echo "==> git identity: $(git config user.name) <$(git config user.email)>"
+
 if [[ ! -d .venv ]]; then
   "$PYTHON" -m venv .venv
 fi
